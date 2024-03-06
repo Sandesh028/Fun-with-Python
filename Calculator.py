@@ -5,8 +5,8 @@ class CalculatorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Stylish Calculator")
-        self.root.geometry("320x500")  # Window size
-        self.root.configure(background='#2C3E50')  # Deep blue background for the app
+        self.root.geometry("320x500")  
+        self.root.configure(background='#2C3E50')  
 
         # Configure styles
         style = ttk.Style()
@@ -57,7 +57,7 @@ class CalculatorApp:
         self.history_visible = False
         
     def setup_key_bindings(self):
-        # Bind key press events to the root window
+        
         for key in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
             self.root.bind(key, self.handle_key_press)
         for key in ('+', '-', '*', '/'):
@@ -69,8 +69,8 @@ class CalculatorApp:
         self.root.bind('=', self.handle_key_press)
 
     def handle_key_press(self, event):
-        char = event.char  # Get the character representation of the key press.
-        keysym = event.keysym  # Get the symbol representation of the key press.
+        char = event.char 
+        keysym = event.keysym  
         
         if keysym == 'Return':
             self.on_button_click('=')
@@ -79,10 +79,10 @@ class CalculatorApp:
         elif keysym in ('C', 'c'):
             self.on_button_click('C')
         else:
-            # Check if char is directly usable (e.g., numbers, +, -, *, /)
+            
             if char in '0123456789+-*/':
                 self.entry.insert(tk.END, char)
-            # For '=', trigger calculation without inserting
+            
             elif keysym == 'equal':
                 self.on_button_click('=')
                 
