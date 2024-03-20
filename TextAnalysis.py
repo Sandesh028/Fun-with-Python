@@ -9,8 +9,6 @@ from nltk.corpus import stopwords
 import textstat
 from transformers import pipeline
 
-from textgui import analyze_text
-
 # Ensure required NLTK datasets are downloaded
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
@@ -27,7 +25,7 @@ class TextAnalysisApp(tk.Tk):
         self.style = ttk.Style()
         self.style.theme_use('clam')
         self.style.configure('Treeview', background="#D3D3D3", foreground="black", rowheight=25, fieldbackground="#D3D3D3")
-        self.style.map('Treeview', background=[('selected', '#E9E9E9')])
+        self.style.map('Treeview', background=[('selected', '#F5F5F5')])
         
         self.init_ui()
         self.analysis_results = {}  # To store the latest analysis results
@@ -49,7 +47,7 @@ class TextAnalysisApp(tk.Tk):
         self.results_area.heading("Feature", text="Feature")
         self.results_area.heading("Value", text="Value")
         self.results_area.column("Feature", anchor=tk.W, width=200)
-        self.results_area.column("Value", anchor=tk.W, width=500)  # Adjusted for better width management
+        self.results_area.column("Value", anchor=tk.W, width=500)
         self.results_area.pack(fill=tk.BOTH, expand=True)
 
         save_btn = ttk.Button(self, text="Save Report", command=self.save_report)
@@ -99,23 +97,77 @@ class TextAnalysisApp(tk.Tk):
             messagebox.showinfo("Info", "Report saved successfully.")
 
     def show_detailed_word_frequencies(self):
-        # Check if the analysis has been done and the results contain the top words information
         if "Top 10 Frequent Words (excluding common stopwords)" in self.analysis_results:
             top_words = self.analysis_results["Top 10 Frequent Words (excluding common stopwords)"]
-            detailed_text = "\n".join([f"{word}: {count}" for word, count in top_words])
+            detailed_text =             "\n".join([f"{word}: {count}" for word, count in top_words])
 
-            # Create a pop-up window
             popup = tk.Toplevel(self)
             popup.title("Detailed Word Frequencies")
-
-            # Create a read-only Text widget to display the top words
             text_widget = tk.Text(popup, wrap=tk.WORD, height=10, width=50)
             text_widget.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
             text_widget.insert(tk.END, detailed_text)
             text_widget.config(state=tk.DISABLED)  # Make the text widget read-only
-
-            # Add a close button to the pop-up
             close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
             close_btn.pack(pady=(0, 10))
         else:
             messagebox.showinfo("Information", "Please perform analysis to see detailed word frequencies.")
+
+def analyze_text(filepath):
+    text = ""
+    try:
+        try:
+            with open(filepath, 'r', encoding="utf-8") as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            with open(filepath, 'r', encoding="iso-8859-1") as f:
+                text = f.read()
+
+        # Basic stats
+        total_lines = text.count('\n')
+        total_characters = len(text) - text.count(" ") - total_lines
+        words = text.split()
+        total_words = len(words)
+        unique_words = len(set(words))
+        special_chars_count = sum(v for k, v in collections.Counter(text).items() if k in string.punctuation)
+        
+        # Word frequency analysis (excluding stopwords)
+        filtered_words = [word for word in words if word.lower() not in stopwords.words('english')]
+        word_frequencies = collections.Counter(filtered_words).most_common(10)
+        
+        # Reading level assessment using textstat
+        flesch_kincaid_grade = textstat.flesch_kincaid_grade(text)
+        
+        # Sentence Analysis
+        sentences = nltk.sent_tokenize(text)
+        average_sentence_length = sum(len(sentence.split()) for sentence in sentences) / len(sentences) if sentences else 0
+        
+        # Enhanced Sentiment Analysis
+        sentiment_result = sentiment_pipeline(text[:512])  # Limiting to first 512 chars for performance reasons
+        sentiment = sentiment_result[0]['label'] if sentiment_result else "Analysis Failed"
+        
+        # Compile results
+        results = {
+            "Total Lines": total_lines,
+            "Total Characters (excluding spaces and new lines)": total_characters,
+            "Total Words": total_words,
+            "Unique Words": unique_words,
+            "Special Characters Count": special_chars_count,
+            "Top 10 Frequent Words (excluding common stopwords)": word_frequencies,
+            "Reading Level (Flesch-Kincaid Grade)": flesch_kincaid_grade,
+            "Average Sentence Length": average_sentence_length,
+            "Sentiment": sentiment,
+        }
+        
+        return results
+
+    except IOError:
+        print(f'"{filepath}" cannot be opened.')
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+if __name__ == "__main__":
+    app = TextAnalysisApp()
+    app.mainloop()
+
