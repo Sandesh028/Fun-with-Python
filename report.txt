@@ -1,0 +1,9 @@
+Total Lines: 26
+Total Characters (excluding spaces and new lines): 1815
+Total Words: 295
+Unique Words: 198
+Special Characters Count: 54
+Top 10 Frequent Words (excluding common stopwords): {web 5} {technical 4} {academic 4} {project 3} {application 3} {whose 2} {development 2} {team 2} {Mr. 2} {us 2}
+Reading Level (Flesch-Kincaid Grade): 14.0
+Average Sentence Length: 24.583333333333332
+Sentiment: POSITIVE
