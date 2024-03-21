@@ -1,10 +1,9 @@
 import tkinter as tk
-from tkinter import filedialog, scrolledtext, messagebox
-from tkinter import ttk
-import os
+from tkinter import filedialog, messagebox, ttk
 import collections
 import string
 import nltk
+import fitz  # PyMuPDF
 from nltk.corpus import stopwords
 import textstat
 from transformers import pipeline
@@ -14,104 +13,81 @@ nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('stopwords')
 
-# Initialize sentiment analysis model
-sentiment_pipeline = pipeline("sentiment-analysis")
+# Initialize sentiment analysis model with a specific model
+sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 
 def analyze_text(filepath):
+    text = ""
     try:
-        with open(filepath, 'r', encoding="utf-8") as f:
-            text = f.read()
+        if filepath.lower().endswith('.pdf'):
+            with fitz.open(filepath) as doc:
+                text = " ".join(page.get_text() for page in doc)
+        else:  # Assuming a text file if not PDF
+            try:
+                with open(filepath, 'r', encoding="utf-8") as f:
+                    text = f.read()
+            except UnicodeDecodeError:
+                with open(filepath, 'r', encoding="iso-8859-1") as f:
+                    text = f.read()
         
-        # Basic stats
-        total_lines = text.count(os.linesep)
-        total_characters = len(text) - text.count(" ") - total_lines
-        words = text.split()
-        total_words = len(words)
-        unique_words = len(set(words))
-        special_chars_count = sum(v for k, v in collections.Counter(text).items() if k in string.punctuation)
+        # Analysis Logic
+        total_words = len(text.split())
+        unique_words = len(set(text.split()))
+        freq_dist = collections.Counter(text.split())
+        top_10_words = freq_dist.most_common(10)
         
-        # Word frequency analysis (excluding stopwords)
-        filtered_words = [word for word in words if word.lower() not in stopwords.words('english')]
-        word_frequencies = collections.Counter(filtered_words).most_common(10)
-        
-        # Reading level assessment using textstat
-        flesch_kincaid_grade = textstat.flesch_kincaid_grade(text)
-        
-        # Sentence Analysis
-        sentences = nltk.sent_tokenize(text)
-        average_sentence_length = sum(len(sentence.split()) for sentence in sentences) / len(sentences)
-        
-        # Enhanced Sentiment Analysis
-        sentiment_result = sentiment_pipeline(text[:512])  # Limiting to first 512 chars for performance
-        sentiment = sentiment_result[0]['label']
-        
-        # Compile results
+        # Example output dictionary
         results = {
-            "Total Lines": total_lines,
-            "Total Characters": total_characters,
             "Total Words": total_words,
             "Unique Words": unique_words,
-            "Special Characters": special_chars_count,
-            "Top 10 Frequent Words": word_frequencies,
-            "Reading Level (Flesch-Kincaid Grade)": flesch_kincaid_grade,
-            "Average Sentence Length": average_sentence_length,
-            "Sentiment": sentiment,
+            "Top 10 Words": top_10_words
         }
-        
         return results
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to analyze the file: {e}")
+        return {}
 
-    except IOError:
-        print(f'"{filepath}" cannot be opened.')
-        return None
+class TextAnalysisApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Text Analysis Tool")
+        self.init_ui()
 
-def open_file():
-    filepath = filedialog.askopenfilename()
-    if not filepath:
-        return
-    entry.delete(0, tk.END)
-    entry.insert(0, filepath)
+    def init_ui(self):
+        self.frame = ttk.Frame(self)
+        self.frame.pack(padx=10, pady=5, expand=True)
 
-def analyze_and_display():
-    filepath = entry.get()
-    if filepath and os.path.isfile(filepath):
-        results = analyze_text(filepath)
-        output_text = "\n".join(f"{k}: {v}" for k, v in results.items())
-        output_area.config(state=tk.NORMAL)
-        output_area.delete(1.0, tk.END)
-        output_area.insert(tk.END, output_text)
-        output_area.config(state=tk.DISABLED)
-    else:
-        messagebox.showerror("Error", "Please select a valid file.")
+        self.entry = ttk.Entry(self.frame)
+        self.entry.pack(side=tk.LEFT, expand=True, fill='x', padx=(0, 5))
 
-def save_report():
-    filepath = filedialog.asksaveasfilename(defaultextension=".txt",
-                                            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
-    if not filepath:
-        return
-    report_text = output_area.get("1.0", tk.END)
-    with open(filepath, 'w', encoding='utf-8') as file:
-        file.write(report_text)
-    messagebox.showinfo("Info", "Report saved successfully.")
+        browse_btn = ttk.Button(self.frame, text="Browse", command=self.open_file)
+        browse_btn.pack(side=tk.RIGHT)
 
-app = tk.Tk()
-app.title("Text Analysis Tool")
+        analyze_btn = ttk.Button(self, text="Analyze", command=self.analyze_and_display)
+        analyze_btn.pack(pady=5)
 
-frame = ttk.Frame(app)
-frame.pack(padx=10, pady=5, fill='x', expand=True)
+        self.results_area = tk.Text(self, height=15)
+        self.results_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-entry = ttk.Entry(frame)
-entry.pack(side=tk.LEFT, expand=True, fill='x')
+    def open_file(self):
+        filepath = filedialog.askopenfilename(filetypes=[("All Files", "*.*"), ("PDF Files", "*.pdf"), ("Text Files", "*.txt")])
+        if filepath:
+            self.entry.delete(0, tk.END)
+            self.entry.insert(0, filepath)
 
-browse_btn = ttk.Button(frame, text="Browse", command=open_file)
-browse_btn.pack(side=tk.RIGHT, padx=(5,0))
+    def analyze_and_display(self):
+        filepath = self.entry.get().strip()
+        if filepath:
+            results = analyze_text(filepath)
+            self.display_results(results)
+        else:
+            messagebox.showwarning("Warning", "Please select a file first.")
 
-analyze_btn = ttk.Button(app, text="Analyze", command=analyze_and_display)
-analyze_btn.pack(pady=(5, 5))
+    def display_results(self, results):
+        self.results_area.delete('1.0', tk.END)
+        for key, value in results.items():
+            self.results_area.insert(tk.END, f"{key}: {value}\n")
 
-output_area = scrolledtext.ScrolledText(app, state='disabled', height=15)
-output_area.pack(fill=tk.BOTH, expand=True)
-
-save_btn = ttk.Button(app, text="Save Report", command=save_report)
-save_btn.pack(pady=(5, 10))
-
-app.mainloop()
+if __name__ == "__main__":
+    app = TextAnalysisApp()
+    app.mainloop()
