@@ -5,11 +5,11 @@ import collections
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import nltk
-import fitz  # PyMuPDF
+import fitz  
 import textstat
 from transformers import pipeline
 
-# Attempt to import ttkthemes for enhanced UI themes
+
 try:
     from ttkthemes import ThemedTk
 except ImportError:
@@ -22,6 +22,8 @@ nltk.download('stopwords', quiet=True)
 
 # Initialize sentiment analysis model
 sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+
+MAX_SEQ_LENGTH = 512  # Maximum sequence length supported by the model
 
 def analyze_text(filepath):
     text = ""
@@ -36,6 +38,8 @@ def analyze_text(filepath):
         print(f"An error occurred while reading the file: {e}")
         return {}
 
+    # Truncate text to maximum sequence length
+    text = text[:MAX_SEQ_LENGTH]
     tokens = word_tokenize(text)
     words = [word.lower() for word in tokens if word.isalpha()]
     filtered_words = [word for word in words if word not in stopwords.words('english')]
@@ -48,7 +52,7 @@ def analyze_text(filepath):
     average_sentence_length = sum(len(word_tokenize(sentence)) for sentence in sentences) / len(sentences)
     sentiment = sentiment_pipeline(text)[0]
     freq_dist = collections.Counter(filtered_words)  # Convert list to Counter object
-    top_10_words = freq_dist.most_common(10)  # Now you can use .most_common() method
+    top_10_words = freq_dist.most_common(10)  
 
     results = {
         "Total Lines": total_lines,
@@ -56,7 +60,7 @@ def analyze_text(filepath):
         "Total Words": len(words),
         "Unique Words": len(set(words)),
         "Special Characters Count": special_chars_count,
-        "Top 10 Frequent Words (excluding common stopwords)": top_10_words,  # Use the correct variable here
+        "Top 10 Frequent Words (excluding common stopwords)": top_10_words,  
         "Reading Level (Flesch-Kincaid Grade)": reading_level,
         "Average Sentence Length": average_sentence_length,
         "Sentiment": sentiment['label']
@@ -65,13 +69,14 @@ def analyze_text(filepath):
     return results
 
 
+
 class TextAnalysisApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Text Analysis Tool")
 
         if ThemedTk:
-            self.root.set_theme('equilux')  # Example theme
+            self.root.set_theme('kroc')  
 
         self.init_ui()
         self.analysis_results = {}
@@ -79,12 +84,7 @@ class TextAnalysisApp:
     def init_ui(self):
         # Create a Style object
         style = ttk.Style(self.root)
-
-        # Define a new style that specifies the button color
-        # Note: Depending on the active theme, some properties might not apply as expected
-        style.configure('Blue.TButton', foreground='aqua', background='blue', font=('Helvetica', 10))
-
-        # Now specify this style for buttons when creating them
+        style.configure('Blue.TButton', foreground='white', background='blue', font=('Helvetica', 10))
         frame = ttk.Frame(self.root)
         frame.pack(padx=10, pady=10, fill='x', expand=True)
 
@@ -152,17 +152,20 @@ class TextAnalysisApp:
         # Clear existing items in the Treeview
         for i in self.results_area.get_children():
             self.results_area.delete(i)
-        # Insert new analysis results
         for k, v in self.analysis_results.items():
             if isinstance(v, list):  # For items like "Top 10 Frequent Words"
                 v = ', '.join([f"{word}: {count}" for word, count in v])
             self.results_area.insert("", tk.END, values=(k, v))
+    try:
+        from ttkthemes import ThemedTk
+    except ImportError:
+        ThemedTk = None
+    print("ttkthemes not installed. Run 'pip install ttkthemes' for better UI themes.")
 
 if __name__ == "__main__":
     if ThemedTk:
         root = ThemedTk(theme="equilux")  # Use ThemedTk if available
     else:
-        root = tk.Tk()  # Fallback to standard Tk window if ttkthemes is not installed
-    app = TextAnalysisApp(root)  # Instantiate the app class with the root window
+        root = tk.Tk() 
+    app = TextAnalysisApp(root)  
     root.mainloop()
-
